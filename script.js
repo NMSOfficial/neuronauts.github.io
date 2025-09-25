@@ -218,12 +218,14 @@ document.addEventListener('DOMContentLoaded', () => {
         loadContent(window.location.href);
     });
 
-    // Mobile menu toggle functionality.
+    // Mobile menu toggle functionality with enhanced responsive behavior.
     if (mobileMenuButton) {
         mobileMenuButton.addEventListener('click', () => {
             if (mobileMenuOverlay) {
                 mobileMenuOverlay.classList.remove('hidden');
                 mobileMenuOverlay.classList.add('flex');
+                // Prevent background scrolling when menu is open
+                document.body.style.overflow = 'hidden';
             }
         });
     }
@@ -233,9 +235,33 @@ document.addEventListener('DOMContentLoaded', () => {
             if (mobileMenuOverlay) {
                 mobileMenuOverlay.classList.remove('flex');
                 mobileMenuOverlay.classList.add('hidden');
+                // Re-enable background scrolling
+                document.body.style.overflow = '';
             }
         });
     }
+
+    // Close mobile menu when clicking outside
+    if (mobileMenuOverlay) {
+        mobileMenuOverlay.addEventListener('click', (e) => {
+            if (e.target === mobileMenuOverlay) {
+                mobileMenuOverlay.classList.remove('flex');
+                mobileMenuOverlay.classList.add('hidden');
+                // Re-enable background scrolling
+                document.body.style.overflow = '';
+            }
+        });
+    }
+
+    // Close mobile menu on window resize to prevent issues
+    window.addEventListener('resize', () => {
+        if (mobileMenuOverlay && window.innerWidth >= 768) {
+            mobileMenuOverlay.classList.remove('flex');
+            mobileMenuOverlay.classList.add('hidden');
+            // Re-enable background scrolling
+            document.body.style.overflow = '';
+        }
+    });
 
     // Etkinlik slayt gösterisi işlevselliği
     function initializeEventSlider() {
