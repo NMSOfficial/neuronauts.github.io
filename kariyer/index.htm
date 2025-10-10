@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="tr">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Yapay Zeka Meslek Tahmini</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            animation: gradientAnimation 15s ease infinite;
+            background: linear-gradient(-45deg, #1e3a8a, #000000, #1f2937, #111827);
+            background-size: 400% 400%;
+        }
+        @keyframes gradientAnimation {
+            0% { background-position: 0% 50%; }
+            50% { background-position: 100% 50%; }
+            100% { background-position: 0% 50%; }
+        }
+        .glow-text {
+            text-shadow: 0 0 8px rgba(255, 255, 255, 0.5);
+        }
+        .glass-card {
+            background: rgba(255, 255, 255, 0.1);
+            backdrop-filter: blur(12px);
+            -webkit-backdrop-filter: blur(12px);
+            border: 1px solid rgba(255, 255, 255, 0.2);
+        }
+        .btn-gradient {
+            background-image: linear-gradient(to right, #1e3a8a, #000000);
+            background-size: 200% auto;
+            transition: background-position 0.5s;
+        }
+        .btn-gradient:hover {
+            background-position: right center;
+        }
+        .loader {
+            border: 4px solid rgba(255, 255, 255, 0.3);
+            border-left-color: #1e3a8a;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            to { transform: rotate(360deg); }
+        }
+        textarea:hover,
+        textarea:focus {
+            transform: scale(1.02);
+            transition: transform 0.3s ease;
+            z-index: 10;
+            box-shadow: 0 0 12px rgba(59, 130, 246, 0.6);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center p-4 text-white">
+
+    <main class="w-full max-w-2xl mx-auto">
+        <div class="glass-card rounded-2xl shadow-2xl p-6 md:p-10">
+            <div class="text-center mb-8 glow-text">
+                <img src="logo.png" alt="Şirket Logo" width="300" height="300" class="mx-auto mb-4" />
+                <h1 class="text-3xl md:text-4xl font-bold tracking-tight">Neuronauts AI Team Kariyer Rehberi</h1>
+                <p class="text-blue-300 mt-2 text-lg">Karakterini anlat, sana en uygun meslekleri keşfedelim.</p>
+            </div>
+
+            <div class="space-y-6">
+                <textarea id="userInput" class="w-full h-40 p-4 rounded-lg bg-black bg-opacity-30 border border-transparent focus:border-blue-400 focus:ring-blue-400 focus:outline-none transition duration-300 resize-none placeholder-gray-400 glow-text" placeholder="Örnek: İnsanlarla iletişim kurmayı seven, yaratıcı çözümler üretmekten hoşlanan, analitik düşünebilen ve takım çalışmasına yatkın biriyim..."></textarea>
+                
+                <button id="predictButton" class="w-full btn-gradient text-white font-bold py-3 px-4 rounded-lg text-lg shadow-lg hover:shadow-xl transform hover:scale-105 transition duration-300 ease-in-out glow-text">
+                    Meslek Öner
+                </button>
+            </div>
+
+            <div id="loading" class="hidden flex justify-center items-center mt-8">
+                <div class="loader"></div>
+            </div>
+            
+            <div id="result" class="mt-8 text-left hidden glow-text">
+                 <h2 class="text-2xl font-bold mb-4 text-center">Sana Özel Kariyer Önerileri:</h2>
+                 <div id="result-content" class="bg-black bg-opacity-20 p-6 rounded-lg space-y-3 glow-text"></div>
+            </div>
+            
+            <div id="error" class="hidden mt-8 text-center bg-red-500 bg-opacity-50 p-4 rounded-lg glow-text">
+                <p>Bir hata oluştu. Lütfen tekrar deneyin.</p>
+            </div>
+
+        </div>
+    </main>
+
+    <script>
+        const predictButton = document.getElementById('predictButton');
+        const userInput = document.getElementById('userInput');
+        const resultDiv = document.getElementById('result');
+        const resultContentDiv = document.getElementById('result-content');
+        const loadingDiv = document.getElementById('loading');
+        const errorDiv = document.getElementById('error');
+
+        predictButton.addEventListener('click', getPrediction);
+
+        userInput.addEventListener('keydown', function (event) {
+            if (event.key === 'Enter' && !event.shiftKey) {
+                event.preventDefault();
+                predictButton.click();
+            }
+        });
+
+        async function getPrediction() {
+            const userText = userInput.value.trim();
+            if (!userText) {
+                errorDiv.innerText = 'Lütfen karakterinizi anlatan bir metin girin.';
+                errorDiv.classList.remove('hidden');
+                setTimeout(() => errorDiv.classList.add('hidden'), 3000);
+                return;
+            }
+
+            loadingDiv.classList.remove('hidden');
+            resultDiv.classList.add('hidden');
+            errorDiv.classList.add('hidden');
+            predictButton.disabled = true;
+
+            try {
+                const prompt = `Aşağıda kişilik özellikleri anlatılan bir kişi için en uygun 5 mesleği, her birini birer cümlelik kısa açıklamasıyla birlikte madde madde listeleyin, her liste sonunda kişi Neuronauts AI Team'e katılırsa her meslekle ilgili yapabileceği ilgi çekici bir yapay zeka projesi önerin samimi bir şekilde, önerirken başlık Mesleğinle İlgili Yapay Zeka Projesi. Cevabın başına "Karakter analizine göre senin için en uygun olabilecek meslekler şunlar olabilir:" gibi bir giriş cümlesi ekleyin. Sadece istenen listeyi, giriş cümlesini ve proje önerisini verin, başka bir açıklama yapmayın.:\n\n"${userText}"`;
+
+                const chatHistory = [{ role: "user", parts: [{ text: prompt }] }];
+                const payload = { contents: chatHistory };
+                const apiKey = "AIzaSyAsUJwzLArCTYKgIMoADViSfaB-yPq0DlQ";
+                const apiUrl = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`;
+                
+                const response = await fetch(apiUrl, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify(payload)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`API error: ${response.statusText}`);
+                }
+
+                const data = await response.json();
+                
+                let resultText = '';
+                if (data.candidates && data.candidates.length > 0 && data.candidates[0].content && data.candidates[0].content.parts && data.candidates[0].content.parts.length > 0) {
+                    resultText = data.candidates[0].content.parts[0].text;
+                } else {
+                    throw new Error("Geçersiz API yanıtı.");
+                }
+
+                displayResult(resultText);
+
+            } catch (error) {
+                console.error('Error:', error);
+                errorDiv.innerText = 'Tahmin alınırken bir hata oluştu. Lütfen daha sonra tekrar deneyin.';
+                errorDiv.classList.remove('hidden');
+            } finally {
+                loadingDiv.classList.add('hidden');
+                predictButton.disabled = false;
+            }
+        }
+
+        function displayResult(text) {
+            resultContentDiv.innerHTML = text
+            .replace(/\*\*(.*?)\*\*/g, '<strong class="text-blue-300 glow-text">$1</strong>') 
+            .replace(/\* (.*?)\n/g, '<p class="border-l-2 border-blue-400 pl-3 py-1 glow-text">$1</p>')
+            .replace(/\*(.*?:)\*/g, '<strong class="text-pink-300 glow-text">$1</strong>')
+            .replace(/Neuronauts AI Projesi/g, '<br><strong class="text-blue-300 glow-text">Takıma Gelmen Durumunda Yapabileceğin Proje</strong>')
+            .replace(/(\d+\.\s)/g, '<br><strong class="text-blue-300 glow-text">$1</strong>')
+            .replace(/\n/g, '<br>');
+
+
+
+            resultDiv.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
