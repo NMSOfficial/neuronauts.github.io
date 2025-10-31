@@ -4,6 +4,43 @@ document.addEventListener('DOMContentLoaded', () => {
     const closeMobileMenuButton = document.getElementById('close-mobile-menu');
     const mobileMenuOverlay = document.getElementById('mobile-menu-overlay');
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
+    const networkInformation =
+        navigator.connection || navigator.mozConnection || navigator.webkitConnection || null;
+
+    const shouldReduceMotion = () => {
+        if (prefersReducedMotion.matches) {
+            return true;
+        }
+        if (networkInformation) {
+            if (networkInformation.saveData) {
+                return true;
+            }
+            const effectiveType = networkInformation.effectiveType || '';
+            if (/^(slow-2g|2g)$/i.test(effectiveType)) {
+                return true;
+            }
+        }
+        return false;
+    };
+
+    const shouldUseLightweightMode = () => {
+        if (shouldReduceMotion()) {
+            return true;
+        }
+        if (networkInformation) {
+            const effectiveType = networkInformation.effectiveType || '';
+            if (/^(slow-2g|2g|3g)$/i.test(effectiveType)) {
+                return true;
+            }
+        }
+        return window.innerWidth < 768;
+    };
+
+    let reduceMotionActive = shouldReduceMotion();
+    let lightweightModeActive = shouldUseLightweightMode();
+
+    const isReduceMotion = () => reduceMotionActive;
+    const isLightweightMode = () => lightweightModeActive;
     const magnetizedElements = new Map();
     const colorProperties = ['--scene-color-1', '--scene-color-2', '--scene-color-3'];
     const parallaxPalettes = [
@@ -48,7 +85,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function applyMagneticHover(element, { intensity = 10 } = {}) {
-        if (!element || magnetizedElements.has(element)) {
+        if (!element || magnetizedElements.has(element) || isLightweightMode() || isReduceMotion()) {
             return;
         }
 
@@ -68,7 +105,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         const handlePointerMove = (event) => {
-            if (prefersReducedMotion.matches || event.pointerType === 'touch') {
+            if (isReduceMotion() || isLightweightMode() || event.pointerType === 'touch') {
                 return;
             }
 
@@ -277,7 +314,7 @@ document.addEventListener('DOMContentLoaded', () => {
             parallaxCleanup = null;
         }
 
-        if (!document.body || prefersReducedMotion.matches) {
+        if (!document.body || isLightweightMode() || isReduceMotion()) {
             return;
         }
 
@@ -391,7 +428,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const navLinks = targetRoot.querySelectorAll('.navbar-link');
 
         navLinks.forEach((link, index) => {
-            if (!prefersReducedMotion.matches) {
+            if (!isReduceMotion() && !isLightweightMode()) {
                 link.style.setProperty('--nav-anim-delay', `${index * 90}ms`);
                 applyMagneticHover(link, { intensity: 9 });
             } else {
@@ -401,7 +438,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         const overlayLinks = document.querySelectorAll('#mobile-menu-overlay .page-link');
         overlayLinks.forEach((link, index) => {
-            if (!prefersReducedMotion.matches) {
+            if (!isReduceMotion() && !isLightweightMode()) {
                 link.style.setProperty('--nav-anim-delay', `${index * 70}ms`);
                 applyMagneticHover(link, { intensity: 7 });
             } else {
@@ -416,7 +453,7 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
-        if (!prefersReducedMotion.matches) {
+        if (!isReduceMotion() && !isLightweightMode()) {
             target.querySelectorAll('.glow-button').forEach((button) => {
                 applyMagneticHover(button, { intensity: 10 });
             });
@@ -434,6 +471,10 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function initializeInteractiveDecorations(scope = document) {
+        if (isLightweightMode() || isReduceMotion()) {
+            clearMagneticHover();
+        }
+
         if (scope === document || scope === document.body || scope === window) {
             initializeNavigationAnimations(document);
             initializeContentDecorations(contentArea);
@@ -445,7 +486,7 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function initializeAmbientPointer() {
-        if (!document.body || ambientPointerCleanup || prefersReducedMotion.matches) {
+        if (!document.body || ambientPointerCleanup || isReduceMotion() || isLightweightMode()) {
             return;
         }
 
@@ -462,7 +503,7 @@ document.addEventListener('DOMContentLoaded', () => {
         };
 
         const handlePointerMove = (event) => {
-            if (prefersReducedMotion.matches || event.pointerType === 'touch') {
+            if (isReduceMotion() || isLightweightMode() || event.pointerType === 'touch') {
                 return;
             }
 
@@ -536,7 +577,7 @@ document.addEventListener('DOMContentLoaded', () => {
             mobileMenuOverlay.dataset.menuState = 'closed';
         };
 
-        if (immediate || prefersReducedMotion.matches || mobileMenuOverlay.dataset.menuState !== 'open') {
+        if (immediate || isReduceMotion() || mobileMenuOverlay.dataset.menuState !== 'open') {
             finalize();
         } else {
             mobileMenuOverlay.dataset.menuState = 'closing';
@@ -711,7 +752,7 @@ document.addEventListener('DOMContentLoaded', () => {
         ];
 
         function animateSliderTrail(direction = 0) {
-            if (prefersReducedMotion.matches) {
+            if (isReduceMotion() || isLightweightMode()) {
                 return;
             }
 
@@ -839,7 +880,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         element.dataset.scrollAnimateReady = 'true';
 
-        if (!prefersReducedMotion.matches) {
+        if (!isReduceMotion()) {
             ensureScrollObserver().observe(element);
         } else {
             element.classList.add('is-visible');
@@ -953,13 +994,54 @@ document.addEventListener('DOMContentLoaded', () => {
         const orderedCandidates = Array.from(candidates);
         setSequentialDelays(orderedCandidates, 70);
 
-        if (prefersReducedMotion.matches && scrollObserver) {
+        if (isReduceMotion() && scrollObserver) {
             scrollObserver.disconnect();
         }
 
         orderedCandidates.forEach((element) => {
             primeScrollAnimation(element);
         });
+    }
+
+    function applyInteractionMode({ scope = document, force = false } = {}) {
+        const nextReduce = shouldReduceMotion();
+        const nextLightweight = shouldUseLightweightMode();
+        const reduceChanged = nextReduce !== reduceMotionActive;
+        const lightweightChanged = nextLightweight !== lightweightModeActive;
+
+        reduceMotionActive = nextReduce;
+        lightweightModeActive = nextLightweight;
+
+        if (reduceChanged || lightweightChanged || force) {
+            if (isReduceMotion() || isLightweightMode()) {
+                if (ambientPointerCleanup) {
+                    ambientPointerCleanup();
+                }
+                if (parallaxCleanup) {
+                    parallaxCleanup();
+                    parallaxCleanup = null;
+                }
+                const canvas = document.querySelector('.parallax-canvas');
+                if (canvas) {
+                    canvas.classList.remove('is-active');
+                }
+                if (document.body) {
+                    document.body.style.setProperty('--scroll-depth', '0');
+                    document.body.style.setProperty('--scene-progress', '0');
+                }
+                clearMagneticHover();
+                if (lightweightChanged) {
+                    closeMobileMenu({ immediate: true });
+                }
+            }
+        }
+
+        initializeInteractiveDecorations(scope);
+        initializeScrollAnimations(scope);
+
+        if (!isLightweightMode() && !isReduceMotion()) {
+            initializeAmbientPointer();
+        }
     }
 
     const pageBehaviors = [
@@ -1213,9 +1295,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
 
                 runPageBehaviors(url, 'dynamic');
-                initializeScrollAnimations(contentArea);
-                initializeInteractiveDecorations(contentArea);
                 initializeFormHandler();
+                applyInteractionMode({ scope: contentArea, force: true });
             } catch (error) {
                 if (error.name === 'AbortError') {
                     return;
@@ -1271,50 +1352,45 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    let resizeEvaluationTimeout = null;
     window.addEventListener('resize', () => {
         if (mobileMenuOverlay && window.innerWidth >= 768) {
             closeMobileMenu({ immediate: true });
         }
+
+        if (resizeEvaluationTimeout) {
+            clearTimeout(resizeEvaluationTimeout);
+        }
+
+        resizeEvaluationTimeout = window.setTimeout(() => {
+            resizeEvaluationTimeout = null;
+            applyInteractionMode();
+        }, 220);
     });
 
     runPageBehaviors(window.location.href, 'initial');
-    initializeScrollAnimations(contentArea);
-    initializeInteractiveDecorations(document);
     initializeFormHandler();
-    initializeAmbientPointer();
+    applyInteractionMode({ force: true });
 
-    const handleMotionPreferenceChange = (event) => {
-        const shouldReduce = typeof event.matches === 'boolean' ? event.matches : prefersReducedMotion.matches;
-
-        if (shouldReduce) {
-            if (ambientPointerCleanup) {
-                ambientPointerCleanup();
-            }
-            if (parallaxCleanup) {
-                parallaxCleanup();
-                parallaxCleanup = null;
-            }
-            const canvas = document.querySelector('.parallax-canvas');
-            if (canvas) {
-                canvas.classList.remove('is-active');
-            }
-            if (document.body) {
-                document.body.style.setProperty('--scroll-depth', '0');
-                document.body.style.setProperty('--scene-progress', '0');
-            }
-            clearMagneticHover();
-            closeMobileMenu({ immediate: true });
-        } else {
-            initializeAmbientPointer();
-            initializeInteractiveDecorations(document);
-        }
-
-        initializeScrollAnimations(contentArea);
+    const handlePreferenceChange = () => {
+        applyInteractionMode({ force: true });
     };
 
     if (typeof prefersReducedMotion.addEventListener === 'function') {
-        prefersReducedMotion.addEventListener('change', handleMotionPreferenceChange);
+        prefersReducedMotion.addEventListener('change', handlePreferenceChange);
     } else if (typeof prefersReducedMotion.addListener === 'function') {
-        prefersReducedMotion.addListener(handleMotionPreferenceChange);
+        prefersReducedMotion.addListener(handlePreferenceChange);
+    }
+
+    if (networkInformation) {
+        const networkChangeHandler = () => {
+            applyInteractionMode();
+        };
+
+        if (typeof networkInformation.addEventListener === 'function') {
+            networkInformation.addEventListener('change', networkChangeHandler);
+        } else if (typeof networkInformation.addListener === 'function') {
+            networkInformation.addListener(networkChangeHandler);
+        }
     }
 });
