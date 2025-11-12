@@ -6,6 +6,13 @@ document.addEventListener('DOMContentLoaded', () => {
     const prefersReducedMotion = window.matchMedia('(prefers-reduced-motion: reduce)');
     const networkInformation =
         navigator.connection || navigator.mozConnection || navigator.webkitConnection || null;
+    const enableDynamicNavigation = Boolean(
+        contentArea && contentArea.hasAttribute('data-dynamic-navigation'),
+    );
+
+    if (enableDynamicNavigation && 'scrollRestoration' in history) {
+        history.scrollRestoration = 'manual';
+    }
 
     if ('scrollRestoration' in history) {
         history.scrollRestoration = 'manual';
@@ -851,8 +858,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 });
             },
             {
-                threshold: 0.25,
-                rootMargin: '0px 0px -10%',
+                threshold: 0.18,
+                rootMargin: '0px 0px -8% 0px',
             },
         );
 
@@ -1425,6 +1432,11 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
 
+        if (!enableDynamicNavigation) {
+            closeMobileMenu();
+            return;
+        }
+
         e.preventDefault();
         const targetUrl = link.href;
 
@@ -1436,10 +1448,12 @@ document.addEventListener('DOMContentLoaded', () => {
         loadContent(targetUrl);
     });
 
-    window.addEventListener('popstate', () => {
-        resetScrollPosition();
-        loadContent(window.location.href);
-    });
+    if (enableDynamicNavigation) {
+        window.addEventListener('popstate', () => {
+            resetScrollPosition();
+            loadContent(window.location.href);
+        });
+    }
 
     if (mobileMenuButton) {
         mobileMenuButton.addEventListener('click', () => {
