@@ -7,6 +7,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const networkInformation =
         navigator.connection || navigator.mozConnection || navigator.webkitConnection || null;
 
+    if ('scrollRestoration' in history) {
+        history.scrollRestoration = 'manual';
+    }
+
     const shouldReduceMotion = () => {
         if (prefersReducedMotion.matches) {
             return true;
@@ -1409,6 +1413,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 300);
     };
 
+    const resetScrollPosition = () => {
+        if (typeof window.scrollTo === 'function') {
+            window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        }
+    };
+
     document.body.addEventListener('click', (e) => {
         const link = e.target.closest('.page-link');
         if (!link) {
@@ -1420,11 +1430,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         closeMobileMenu();
 
+        resetScrollPosition();
+
         history.pushState(null, '', targetUrl);
         loadContent(targetUrl);
     });
 
     window.addEventListener('popstate', () => {
+        resetScrollPosition();
         loadContent(window.location.href);
     });
 
