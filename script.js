@@ -14,6 +14,10 @@ document.addEventListener('DOMContentLoaded', () => {
         history.scrollRestoration = 'manual';
     }
 
+    if ('scrollRestoration' in history) {
+        history.scrollRestoration = 'manual';
+    }
+
     const shouldReduceMotion = () => {
         if (prefersReducedMotion.matches) {
             return true;
