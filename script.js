@@ -7,6 +7,10 @@ document.addEventListener('DOMContentLoaded', () => {
     const networkInformation =
         navigator.connection || navigator.mozConnection || navigator.webkitConnection || null;
 
+    if ('scrollRestoration' in history) {
+        history.scrollRestoration = 'manual';
+    }
+
     const shouldReduceMotion = () => {
         if (prefersReducedMotion.matches) {
             return true;
@@ -45,29 +49,19 @@ document.addEventListener('DOMContentLoaded', () => {
     const colorProperties = ['--scene-color-1', '--scene-color-2', '--scene-color-3'];
     const parallaxPalettes = [
         [
-            [236, 72, 153],
-            [59, 130, 246],
-            [192, 132, 252],
+            [37, 99, 235],
+            [12, 74, 110],
+            [96, 165, 250],
         ],
         [
-            [14, 165, 233],
-            [99, 102, 241],
-            [192, 132, 252],
+            [30, 64, 175],
+            [17, 94, 120],
+            [80, 130, 214],
         ],
         [
-            [244, 114, 182],
-            [129, 140, 248],
-            [56, 189, 248],
-        ],
-        [
-            [34, 197, 94],
-            [16, 185, 129],
-            [59, 130, 246],
-        ],
-        [
-            [250, 204, 21],
-            [249, 115, 22],
-            [236, 72, 153],
+            [24, 78, 174],
+            [20, 83, 136],
+            [125, 211, 252],
         ],
     ];
     let currentSceneColors = parallaxPalettes[0].map((color) => [...color]);
@@ -1003,6 +997,111 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
+    function setupVideoAutoplay({ scope = document } = {}) {
+        const root = scope instanceof Element ? scope : document;
+        const video = root.querySelector('[data-video-autoplay]');
+
+        if (!video) {
+            return;
+        }
+
+        if (typeof video._autoplayCleanup === 'function') {
+            video._autoplayCleanup();
+        }
+
+        if (video.dataset.autoplayManaged === 'true') {
+            return;
+        }
+
+        video.dataset.autoplayManaged = 'true';
+        video.playsInline = true;
+
+        if (!('IntersectionObserver' in window) || shouldReduceMotion()) {
+            return;
+        }
+
+        const resetOnExit = video.dataset.resetOnExit !== 'false';
+
+        const pauseVideo = (reset = false) => {
+            if (!video.paused) {
+                video.pause();
+            }
+            if (reset && resetOnExit) {
+                video.currentTime = 0;
+            }
+        };
+
+        const tryPlay = () => {
+            if (!video.paused) {
+                return;
+            }
+            const playPromise = video.play();
+            if (playPromise && typeof playPromise.catch === 'function') {
+                playPromise.catch(() => {
+                    video.muted = true;
+                    video.play().catch(() => {});
+                });
+            }
+        };
+
+        const observer = new IntersectionObserver(
+            (entries) => {
+                entries.forEach((entry) => {
+                    if (entry.target !== video) {
+                        return;
+                    }
+                    if (entry.isIntersecting) {
+                        tryPlay();
+                    } else {
+                        pauseVideo(true);
+                    }
+                });
+            },
+            {
+                threshold: 0.6,
+                rootMargin: '0px 0px -10%',
+            },
+        );
+
+        observer.observe(video);
+
+        const handleVisibilityChange = () => {
+            if (document.hidden) {
+                pauseVideo();
+            }
+        };
+
+        document.addEventListener('visibilitychange', handleVisibilityChange);
+
+        const handleVideoEnded = () => {
+            if (resetOnExit) {
+                video.currentTime = 0;
+            }
+        };
+
+        video.addEventListener('ended', handleVideoEnded);
+
+        let cleanupCalled = false;
+        const handlePageHide = () => cleanup();
+
+        const cleanup = () => {
+            if (cleanupCalled) {
+                return;
+            }
+            cleanupCalled = true;
+            observer.disconnect();
+            document.removeEventListener('visibilitychange', handleVisibilityChange);
+            video.removeEventListener('ended', handleVideoEnded);
+            window.removeEventListener('pagehide', handlePageHide);
+            delete video.dataset.autoplayManaged;
+            delete video._autoplayCleanup;
+        };
+
+        window.addEventListener('pagehide', handlePageHide, { once: true });
+
+        video._autoplayCleanup = cleanup;
+    }
+
     function applyInteractionMode({ scope = document, force = false } = {}) {
         const nextReduce = shouldReduceMotion();
         const nextLightweight = shouldUseLightweightMode();
@@ -1038,6 +1137,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
         initializeInteractiveDecorations(scope);
         initializeScrollAnimations(scope);
+        setupVideoAutoplay({ scope });
 
         if (!isLightweightMode() && !isReduceMotion()) {
             initializeAmbientPointer();
@@ -1313,6 +1413,12 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 300);
     };
 
+    const resetScrollPosition = () => {
+        if (typeof window.scrollTo === 'function') {
+            window.scrollTo({ top: 0, left: 0, behavior: 'auto' });
+        }
+    };
+
     document.body.addEventListener('click', (e) => {
         const link = e.target.closest('.page-link');
         if (!link) {
@@ -1324,11 +1430,14 @@ document.addEventListener('DOMContentLoaded', () => {
 
         closeMobileMenu();
 
+        resetScrollPosition();
+
         history.pushState(null, '', targetUrl);
         loadContent(targetUrl);
     });
 
     window.addEventListener('popstate', () => {
+        resetScrollPosition();
         loadContent(window.location.href);
     });
 
